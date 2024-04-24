@@ -33,16 +33,9 @@ exports.getUserProfile = async (req, res) => {
 
 exports.getChatUsers = async (req, res) => {
     try {
-        const chats = await Chat.find({participants: req.user.id});
-
-        const participantIds = chats.map(chat => chat.participants).flat();
-
-        const uniqueParticipantIds = [...new Set(participantIds)].filter(id => id.toString() !== req.user.id.toString());
-
-        // Include a condition to fetch only users with the role 'Player'
         const users = await User.find({
-            _id: {$in: uniqueParticipantIds},
-            role: 'Player'  // Assuming the role field is directly on the User model and is named 'role'
+            role: 'Player',
+            _id: { $ne: req.user.id }
         }).select('fullname email profile status');
 
         res.json(users);
