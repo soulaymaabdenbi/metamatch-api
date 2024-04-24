@@ -1,0 +1,158 @@
+// pipeline{
+// agent any
+// environment {
+// registryCredentials = "nexus"
+// registry = "172.16.2.239:8083"
+// MONGOMS_VERSION = "4.4.6"
+// }
+
+// stages {
+// stage('Install dependencies') {
+// steps{
+// script {
+// sh('npm install')
+// }
+// }
+// }
+// stage('Unit Test') {
+// steps{
+// script {
+//     export MONGOMS_VERSION=4.4.6
+// sh('npx jest')
+// }
+// }
+// }
+// stage('Build application') {
+// steps{
+// script {
+// sh('npm run build-dev')
+// }
+// }
+// }
+// stage('Building images (node and mongo)') {
+// steps{
+// script {
+// sh('docker-compose build')
+// }
+// }
+// }
+// // Uploading Docker images into Nexus Registry
+// stage('Deploy to Nexus') {
+// steps{ 
+// script {
+// docker.withRegistry("http://"+registry,
+// registryCredentials ) {
+// sh('docker push $registry/nodemongoapp:5.0 ')
+
+// }
+// }
+// }
+// }
+// stage('Run application ') {
+// steps{ 
+// script {
+// docker.withRegistry("http://"+registry, registryCredentials 
+// ) {
+// sh('docker pull $registry/nodemongoapp:6.0 ')
+// sh('docker-compose up -d ')
+// }
+// }
+// }
+// }
+// stage("Run Prometheus"){
+//       steps{
+ 
+//         script{
+
+//         sh('docker start prometheus')
+
+//         }
+//       }
+//     }
+//      stage("Run Grafana"){ 
+//       steps{
+
+//         script{
+//         sh('docker start grafana')
+//         }
+//       }
+//     }
+//   } 
+// }
+
+
+
+pipeline {
+    agent any
+    
+    environment {
+        registryCredentials = "nexus"
+        registry = "172.16.2.239:8083"
+       
+    }
+
+    stages {
+        stage('Install dependencies') {
+            steps {
+                script {
+                    sh('npm install')
+                }
+            }
+        }
+        stage('Unit Test') {
+            steps {
+                script {
+                    sh('npx jest')
+                }
+            }
+        }
+        stage('Build application') {
+            steps {
+                script {
+                    sh('npm run build-dev')
+                }
+            }
+        }
+        stage('Building images (node and mongo)') {
+            steps {
+                script {
+                    sh('docker-compose build')
+                }
+            }
+        }
+        // Uploading Docker images into Nexus Registry
+        stage('Deploy to Nexus') {
+            steps { 
+                script {
+                    docker.withRegistry("http://${registry}", registryCredentials) {
+                        sh('docker push ${registry}/nodemongoapp:5.0')
+                    }
+                }
+            }
+        }
+        stage('Run application') {
+            steps { 
+                script {
+                    docker.withRegistry("http://${registry}", registryCredentials) {
+                        sh('docker pull ${registry}/nodemongoapp:6.0')
+                        sh('docker-compose up -d')
+                    }
+                }
+            }
+        }
+        stage("Run Prometheus") {
+            steps {
+                script {
+                    sh('docker start prometheus')
+                }
+            }
+        }
+        stage("Run Grafana") { 
+            steps {
+                script {
+                    sh('docker start grafana')
+                }
+            }
+        }
+    }
+}
