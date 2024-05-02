@@ -24,71 +24,11 @@ const WebSocket = require("ws");
 
 const wss = new WebSocket.Server({ server });
 
-// const teamScores = {
-//   teamA: 0,
-//   teamB: 0,
-// };
-
-// wss.on("connection", (ws) => {
-//   console.log("Client connected");
-
-//   ws.on("message", (message) => {
-//     console.log(`Received message: ${message}`);
-
-//     // Parse the incoming message
-//     const data = JSON.parse(message);
-
-//     // Check the type of message
-//     if (data.type === "update_scores") {
-//       // Extract the team and new score from the received data
-//       const { team, newScore } = data;
-
-//       // Update the score for the specified team
-//       teamScores[team] = newScore;
-
-//       // Log the updated scores for debugging
-//       console.log("Updated scores:", teamScores);
-
-//       // Broadcast the updated score to all connected clients
-//       wss.clients.forEach((client) => {
-//         if (client.readyState === WebSocket.OPEN) {
-//           console.log("Sending score_updated message with:", {
-//             type: "score_updated",
-//             team,
-//             newScore,
-//           });
-//           client.send(
-//             JSON.stringify({
-//               type: "score_updated",
-//               team,
-//               newScore,
-//               teamScores,
-//             })
-//           );
-//         }
-//       });
-//     } else if (data.type === "finish_game") {
-//       // Handle finishing the game
-//       // For example, disable buttons and mark the game as finished
-
-//       // Broadcast the game finished message to all connected clients
-//       wss.clients.forEach((client) => {
-//         if (client.readyState === WebSocket.OPEN) {
-//           client.send(JSON.stringify({ type: "game_finished" }));
-//         }
-//       });
-//     }
-//   });
-
-//   ws.on("close", () => {
-//     console.log("Client disconnected");
-//   });
-// });
-
-const teamScores = {
+let teamScores = {
   teamA: { score: 0, name: "" },
   teamB: { score: 0, name: "" },
 };
+let gameFinished = false;
 
 wss.on("connection", (ws) => {
   console.log("Client connected");
@@ -96,59 +36,66 @@ wss.on("connection", (ws) => {
   ws.on("message", (message) => {
     console.log(`Received message: ${message}`);
 
-    // Parse the incoming message
     const data = JSON.parse(message);
 
-    // Check the type of message
     if (data.type === "update_scores") {
-      // Extract the team scores and names from the received data
       const { teamA, teamB, teamAName, teamBName } = data;
 
-      // Update the scores and names for both teams
       teamScores.teamA.score = teamA;
       teamScores.teamA.name = teamAName;
       teamScores.teamB.score = teamB;
       teamScores.teamB.name = teamBName;
 
-      // Log the updated scores for debugging
       console.log("Updated scores:", teamScores);
 
-      // Broadcast the updated score to all connected clients
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-          console.log("Sending score_updated message with:", {
-            type: "score_updated",
-            teamA: teamScores.teamA,
-            teamB: teamScores.teamB,
-            teamScores,
-          });
           client.send(
-            JSON.stringify({
-              type: "score_updated",
-              teamA: teamScores.teamA,
-              teamB: teamScores.teamB,
-              teamScores,
-            })
+              JSON.stringify({
+                type: "score_updated",
+                teamA: teamScores.teamA,
+                teamB: teamScores.teamB,
+                teamScores,
+              })
           );
         }
       });
     } else if (data.type === "finish_game") {
-      // Handle finishing the game
-      // For example, disable buttons and mark the game as finished
-
-      // Broadcast the game finished message to all connected clients
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(JSON.stringify({ type: "game_finished" }));
         }
       });
+    } else if (data.type === "restart") {
+      teamScores.teamA.score = 0;
+      teamScores.teamB.score = 0;
+      teamScores.teamA.name = "";
+      teamScores.teamB.name = "";
+      gameFinished = false;
+
+      console.log("Game restarted");
+
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: "game_restarted" }));
+        }
+      });
+    } else if (data.type === "new_chat_message") {
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
     }
+
   });
 
   ws.on("close", () => {
     console.log("Client disconnected");
   });
 });
+
+
 
 mongoose
   .connect(process.env.MONGO_URI)
@@ -165,7 +112,6 @@ app.use("/blog", blogRouter);
 app.use("/api", meetingRoutes);
 app.use("/injury", injuryRouter);
 app.use("/api/form", formRouter);
-app.use('/uploads', express.static('uploads'));
 
 
 cron.schedule("5 0 * * *", async () => {
@@ -228,4 +174,26 @@ app.use("/test", (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+
+
+// Node.js: WebSocket handling in your existing server setup
+wss.on("connection", (ws) => {
+  console.log("Client connected");
+
+  ws.on("message", (message) => {
+    const data = JSON.parse(message);
+    console.log(`Received message: ${message}`);
+    if (data.type === "new_chat_message") {
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("Client disconnected");
+  });
 });

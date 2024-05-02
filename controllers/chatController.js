@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Chat = require('../models/Chat');
 const Contact = require('../models/Contact');
+const mongoose = require('mongoose');
 
 exports.getContacts = async (req, res) => {
     try {
@@ -31,12 +32,65 @@ exports.getUserProfile = async (req, res) => {
     }
 };
 
+
 exports.getChatUsers = async (req, res) => {
     try {
-        const users = await User.find({
+        const allUsers = await User.find({
             role: 'Player',
             _id: { $ne: req.user.id }
-        }).select('fullname email profile status');
+        }).select('fullname email profile status _id');
+
+        // Aggregating to find the latest message for each chat involving the current user
+        const chats = await Chat.aggregate([
+            { $match: { participants: new mongoose.Types.ObjectId(req.user.id) } },
+            { $unwind: '$chatHistory' },
+            { $sort: { 'chatHistory.time': -1 } },
+            {
+                $group: {
+                    _id: { $filter: {
+                            input: '$participants',
+                            as: 'participant',
+                            cond: { $ne: ['$$participant', new mongoose.Types.ObjectId(req.user.id)] }
+                        }},
+                    latestMessageTime: { $first: '$chatHistory.time' }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: '_id',
+                    foreignField: '_id',
+                    as: 'participantDetails'
+                }
+            },
+            { $unwind: '$participantDetails' },
+            {
+                $project: {
+                    _id: 1,
+                    latestMessageTime: 1,
+                    fullname: '$participantDetails.fullname',
+                    email: '$participantDetails.email',
+                    profile: '$participantDetails.profile',
+                    status: '$participantDetails.status'
+                }
+            }
+        ]);
+
+        // Create a map of users with chat details
+        const chatMap = new Map(chats.map(chat => [chat._id.toString(), chat]));
+
+        // Combine all users with chat data
+        const users = allUsers.map(user => {
+            const chatDetails = chatMap.get(user._id.toString());
+            return {
+                _id: user._id,
+                fullname: user.fullname,
+                email: user.email,
+                profile: user.profile,
+                status: user.status,
+                lastMessageTime: chatDetails ? chatDetails.latestMessageTime : null
+            };
+        }).sort((a, b) => b.lastMessageTime - a.lastMessageTime); // Sorting by latestMessageTime
 
         res.json(users);
     } catch (error) {
