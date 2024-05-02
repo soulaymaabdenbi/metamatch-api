@@ -88,3 +88,40 @@ exports.updateUserProfile = async (req, res) => {
         res.status(500).json({message: "Failed to update user profile."});
     }
 };
+
+
+exports.uploadPhoto = async (req, res) => {
+    // Extract senderId, userId, and imageUrl from the request body
+    const {chats} = req.body;
+    console.log('chats ********', chats);
+
+    try {
+        // Find the chat using participant IDs
+        const chat = await Chat.findOne({ participants: { $all: [userId, senderId] } });
+
+        // Handle the case where the chat does not exist
+        if (!chat) {
+            return res.status(404).json({ status: false, message: 'Chat not found.' });
+        }
+
+        // Add the new message to the chat history
+        chat.chatHistory.push(chats);
+        await chat.save();
+
+        // Respond with the newly created message
+        res.status(201).json({
+            status: true,
+            message: 'Photo uploaded successfully',
+            data: newMessage
+        });
+    } catch (error) {
+        console.error('Failed to upload photo:', error);
+        res.status(500).json({
+            status: false,
+            message: 'Failed to upload photo.',
+            error: error.message
+        });
+    }
+};
+
+

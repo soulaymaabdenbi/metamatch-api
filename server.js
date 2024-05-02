@@ -165,6 +165,8 @@ app.use("/blog", blogRouter);
 app.use("/api", meetingRoutes);
 app.use("/injury", injuryRouter);
 app.use("/api/form", formRouter);
+app.use('/uploads', express.static('uploads'));
+
 
 cron.schedule("5 0 * * *", async () => {
   try {
@@ -219,49 +221,11 @@ app.use("/test", (req, res) => {
   return res.status(200).json({ status: true, password });
 });
 
+
+
+
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
-// //wss.on("connection", (ws) => {
-//   console.log("Client connected");
-
-//   ws.on("message", (message) => {
-//     console.log(`Received message: ${message}`);
-
-//     // Parse the incoming message
-//     const data = JSON.parse(message);
-
-//     // Check the type of message
-//     if (data.type === "update_scores") {
-//       // Update the score based on the received data
-//       // For example, if the message contains the new score:
-//       const newScore = data.score;
-//       // Update the score logic here
-
-//       // Broadcast the updated score to all connected clients
-//       wss.clients.forEach((client) => {
-//         if (client.readyState === WebSocket.OPEN) {
-//           client.send(
-//             JSON.stringify({ type: "score_updated", score: newScore })
-//           );
-//         }
-//       });
-//     } else if (data.type === "finish_game") {
-//       // Handle finishing the game
-//       // For example, disable buttons and mark the game as finished
-
-//       // Broadcast the game finished message to all connected clients
-//       wss.clients.forEach((client) => {
-//         if (client.readyState === WebSocket.OPEN) {
-//           client.send(JSON.stringify({ type: "game_finished" }));
-//         }
-//       });
-//     }
-//   });
-
-//   ws.on("close", () => {
-//     console.log("Client disconnected");
-//   });
-// });
